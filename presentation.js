@@ -28,7 +28,7 @@
   }
 
   function normalise(value) {
-    return String(value || '').trim().replace(/\\s+/g, ' ').toLocaleLowerCase('en-GB');
+    return String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-GB');
   }
   function showMessage(value, error = false) {
     message.textContent = value;
@@ -67,7 +67,7 @@
 
   async function save(attending) {
     if (busy || !ready) return;
-    const name = nameInput.value.trim().replace(/\\s+/g, ' ');
+    const name = nameInput.value.trim().replace(/\s+/g, ' ');
     if (name.length < 2 || name.length > 80) {
       showMessage('Please enter your name before choosing Yes or No.', true);
       nameInput.focus();
