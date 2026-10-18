@@ -79,6 +79,8 @@ async function test(width,height=900) {
   assert.equal(await page.locator('#showAttendees').getAttribute('aria-expanded'),'true');
   assert.equal(await page.locator('#guestCount').innerText(),'3');
   assert.equal(await page.locator('#attendees li').count(),3);
+  await page.locator('#showAttendees').click();
+  assert.equal(await page.locator('#guestSection').isVisible(),false,'Collapse optional guest list before checking the no-scroll RSVP flow');
   assert.equal(await page.locator('.hero-buttons').count(),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'Horizontal mobile overflow');
   await page.locator('#memberName').fill('New Person');
@@ -99,6 +101,7 @@ async function test(width,height=900) {
     });
     console.log('AFTER ANSWER SELECTION',width,height,JSON.stringify(afterSelection));
     assert(afterSelection.confirmBottom<=height-5,'Confirm RSVP must remain visible without scrolling');
+    assert(afterSelection.scrollHeight<=height+2 && afterSelection.bodyHeight<=height+2,'Collapsed RSVP must not need scrolling after selection: '+JSON.stringify(afterSelection));
   }
   await page.locator('#confirmRsvp').click();
   await page.locator('#responseMessage').filter({hasText:/Thank you/}).waitFor();
@@ -118,6 +121,8 @@ async function test(width,height=900) {
   await page.locator('#confirmRsvp').click();
   await page.locator('#responseMessage').filter({hasText:/More than one RSVP/}).waitFor();
   assert.equal(updates,1,'Ambiguous names must not update an existing RSVP');
+  await page.locator('#showAttendees').click();
+  assert.equal(await page.locator('#guestSection').isVisible(),true,'Guest list should open after a saved RSVP');
   await page.locator('#showAttendees').click();
   assert.equal(await page.locator('#guestSection').isVisible(),false,'Guest list must collapse again');
   await page.screenshot({path:path.join(root,'presentation-'+width+'.png'),fullPage:true});
