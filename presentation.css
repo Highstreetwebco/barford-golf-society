@@ -275,3 +275,52 @@ form label{display:block;font-size:13px;font-weight:750;margin-bottom:10px}input
   body:has(#guestSection:not([hidden])) .main-wrap { flex: 1 0 auto; }
   body:has(#guestSection:not([hidden])) .response-card { justify-content: flex-start; gap: 12px; }
 }
+
+/* Select an RSVP response before deliberately confirming it. */
+.respond.is-selected {
+  border-color:#b89047;
+  outline:2px solid #d5ad5e;
+  outline-offset:0;
+  box-shadow:0 0 0 3px #d5ad5e33;
+}
+.respond.no.is-selected { background:#eff5ed; color:#133f2c; }
+.confirm-rsvp {
+  display:block;
+  width:100%;
+  min-height:52px;
+  margin:13px 0 0;
+  border:0;
+  border-radius:10px;
+  background:#c5a05d;
+  color:#112c24;
+  font:800 15px/1.25 Inter,system-ui,sans-serif;
+  letter-spacing:.02em;
+  cursor:pointer;
+  transition:background .15s;
+}
+.confirm-rsvp:not(:disabled):hover { background:#e0b971; }
+.confirm-rsvp:focus-visible { outline:3px solid #173f32; outline-offset:3px; }
+.confirm-rsvp:disabled { cursor:not-allowed; opacity:.55; }
+@media(max-width:750px) {
+  .confirm-rsvp { min-height:51px; margin-top:10px; font-size:14px; }
+  .invitation { flex-basis:clamp(175px,32svh,295px); }
+  .response-card { padding-top:clamp(14px,2.3svh,22px); padding-bottom:clamp(12px,2svh,18px); }
+  .response-description { display:none; }
+  .response-note { display:none; }
+  .response-actions { margin-top:9px; }
+  .guest-reveal { margin-top:6px; }
+}
+@media(max-width:750px) and (min-height:730px) {
+  .invitation { flex-basis:clamp(235px,34svh,315px); }
+  .response-description { display:block; }
+  .response-note { display:none; }
+}
+@media(max-width:750px) and (max-height:620px) {
+  .invitation { flex-basis:29svh; min-height:147px; }
+  .response-card { padding-top:9px; padding-bottom:9px; }
+  .confirm-rsvp { min-height:43px; margin-top:7px; font-size:13px; }
+  .respond { min-height:46px; }
+  .response-actions { margin-top:7px; }
+  .guest-reveal { min-height:42px; margin-top:5px; }
+  .form-message { margin-top:5px; }
+}

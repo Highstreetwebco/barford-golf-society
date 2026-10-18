@@ -7,6 +7,8 @@
   const LAST_REPLY_KEY = 'barford-presentation-2026-name';
   const el = id => document.getElementById(id);
   const nameInput = el('memberName'), yesButton = el('answerYes'), noButton = el('answerNo');
+  const confirmButton = el('confirmRsvp');
+  let selectedAnswer = null;
   const message = el('responseMessage'), attendeeList = el('attendees'), guestCount = el('guestCount');
   let rows = [];
   let busy = false;
@@ -39,6 +41,18 @@
     nameInput.disabled = value || !ready;
     yesButton.disabled = value || !ready;
     noButton.disabled = value || !ready;
+    confirmButton.disabled = value || !ready || selectedAnswer === null;
+  }
+
+  function selectAnswer(answer) {
+    if (busy || !ready) return;
+    selectedAnswer = answer;
+    yesButton.classList.toggle('is-selected', answer === true);
+    noButton.classList.toggle('is-selected', answer === false);
+    yesButton.setAttribute('aria-pressed',String(answer === true));
+    noButton.setAttribute('aria-pressed',String(answer === false));
+    confirmButton.disabled = false;
+    showMessage(answer ? "You've selected Yes. Press Confirm RSVP to save." : "You've selected No. Press Confirm RSVP to save.");
   }
   function renderGuests() {
     const confirmed = rows.filter(row => row.attending === true && row.reserve !== true)
@@ -69,7 +83,7 @@
     if (busy || !ready) return;
     const name = nameInput.value.trim().replace(/\s+/g, ' ');
     if (name.length < 2 || name.length > 80) {
-      showMessage('Please enter your name before choosing Yes or No.', true);
+      showMessage('Please enter your full name before confirming.', true);
       nameInput.focus();
       return;
     }
@@ -144,9 +158,14 @@
     guestTrigger.innerHTML = opening ? "Hide who's coming <span aria-hidden=\"true\">↑</span>" : "See who's coming <span aria-hidden=\"true\">↓</span>";
     if (opening && ready) refreshGuests().catch(() => {});
   });
-  yesButton.addEventListener('click', () => save(true));
-  noButton.addEventListener('click', () => save(false));
-  el('presentationForm').addEventListener('submit', event => event.preventDefault());
+  yesButton.setAttribute('aria-pressed','false');
+  noButton.setAttribute('aria-pressed','false');
+  yesButton.addEventListener('click', () => selectAnswer(true));
+  noButton.addEventListener('click', () => selectAnswer(false));
+  el('presentationForm').addEventListener('submit', event => {
+    event.preventDefault();
+    if (selectedAnswer !== null && !busy) void save(selectedAnswer);
+  });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && !busy && ready) refreshGuests().catch(() => {});
   });

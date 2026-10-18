@@ -51,7 +51,7 @@ async function test(width,height=900) {
   if (width <= 750) {
     const bounds=await page.evaluate(()=>{
       const box=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height};};
-      return {header:box('.site-head'),hero:box('.invitation'),card:box('.response-card'),title:box('#pageTitle'),name:box('#memberName'),yes:box('#answerYes'),no:box('#answerNo'),list:box('#showAttendees'),bodyHeight:document.body.scrollHeight,documentHeight:document.documentElement.scrollHeight,viewHeight:innerHeight,viewWidth:innerWidth};
+      return {header:box('.site-head'),hero:box('.invitation'),card:box('.response-card'),title:box('#pageTitle'),name:box('#memberName'),yes:box('#answerYes'),no:box('#answerNo'),confirm:box('#confirmRsvp'),list:box('#showAttendees'),bodyHeight:document.body.scrollHeight,documentHeight:document.documentElement.scrollHeight,viewHeight:innerHeight,viewWidth:innerWidth};
     });
     console.log('FIRST SCREEN',width,height,JSON.stringify(bounds));
     assert(bounds.bodyHeight<=height+2 && bounds.documentHeight<=height+2, 'Collapsed RSVP page should not scroll on '+width+'x'+height+': '+JSON.stringify(bounds));
@@ -63,7 +63,7 @@ async function test(width,height=900) {
       return {header:area('.site-head'),title:area('#pageTitle'),date:area('#presentationDate'),venue:area('#presentationVenue'),name:area('#memberName'),yes:area('#answerYes'),no:area('#answerNo'),list:area('#showAttendees'),width:document.documentElement.scrollWidth,viewWidth:innerWidth,viewHeight:innerHeight};
     });
     assert(legacyBounds.width<=legacyBounds.viewWidth+1,'Phone must have no horizontal overflow');
-    for(const control of ['name','yes','no','list']) {
+    for(const control of ['name','yes','no','confirm','list']) {
       assert(legacyBounds[control].top>=0 && legacyBounds[control].bottom<=legacyBounds.viewHeight-6,
         control+' must be fully visible without scrolling on '+width+'x'+height+': '+JSON.stringify(legacyBounds));
     }
@@ -82,17 +82,29 @@ async function test(width,height=900) {
   assert.equal(await page.locator('.hero-buttons').count(),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'Horizontal mobile overflow');
   await page.locator('#memberName').fill('New Person');
+  assert.equal(await page.locator('#confirmRsvp').isDisabled(),true,'Must pick Yes or No first');
   await page.locator('#answerYes').click();
+  assert.equal(inserts,0,'Choosing Yes should not save');
+  assert.equal(updates,0);
+  assert.equal(await page.locator('#answerYes').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('#answerNo').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('#confirmRsvp').isEnabled(),true);
+  await page.locator('#confirmRsvp').click();
   await page.locator('#responseMessage').filter({hasText:/Thank you/}).waitFor();
   assert.equal(inserts,1);
   assert.equal(await page.locator('#guestCount').innerText(),'4');
   await page.locator('#answerNo').click();
-  await page.locator('#responseMessage').getByText(/Thank you/).waitFor();
+  assert.equal(inserts,1,'Selecting No must not create another RSVP');
+  assert.equal(updates,0,'Selecting No must not update the response before confirmation');
+  assert.equal(await page.locator('#answerNo').getAttribute('aria-pressed'),'true');
+  await page.locator('#confirmRsvp').click();
+  await page.locator('#responseMessage').filter({hasText:/Thank you/}).waitFor();
   assert.equal(inserts,1,'Repeated RSVP must update, not insert');
   assert.equal(updates,1);
   assert.equal(await page.locator('#guestCount').innerText(),'3');
   await page.locator('#memberName').fill('Nick');
   await page.locator('#answerNo').click();
+  await page.locator('#confirmRsvp').click();
   await page.locator('#responseMessage').filter({hasText:/More than one RSVP/}).waitFor();
   assert.equal(updates,1,'Ambiguous names must not update an existing RSVP');
   await page.locator('#showAttendees').click();
