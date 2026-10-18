@@ -317,7 +317,7 @@
     <table id="playersTableWrap">
       <thead>
         <tr>
-          <th>Rank</th><th>Player</th><th id="hcpHeader">Round 1 HCP</th><th>Points</th><th>Adj</th><th id="newHcpHeader">Next HCP</th><th>Total</th><th>DNP</th><th>🏆</th>
+          <th>Rank</th><th>Player</th><th id="hcpHeader">Round 1 HCP</th><th>Points</th><th>Adj</th><th id="newHcpHeader">Next HCP</th><th>Total</th><th>Status</th><th>🏆</th>
         </tr>
       </thead>
       <tbody id="playersTable"></tbody>
@@ -353,6 +353,7 @@
   let trophies     = [];
   let lastAdj      = [];
   let playerScores = [];
+  let playerDnpHistory = [];
   let playerHcpHistory = [];
   let playerAdjHistory = [];
   let playerNextHcpHistory = [];
@@ -414,12 +415,19 @@ async function loadData(){
   trophies     = players.map(()=>0);
   lastAdj      = players.map(()=> "");
   playerScores = players.map(()=> Array(maxRounds).fill(null));
+  playerDnpHistory = players.map(()=> Array(maxRounds).fill(null));
   playerHcpHistory = players.map(()=> Array(maxRounds).fill(null));
   playerAdjHistory = players.map(()=> Array(maxRounds).fill(null));
   playerNextHcpHistory = players.map(()=> Array(maxRounds).fill(null));
   const { data: scores, error: sErr } = await supabaseClient
     .from("scores")
     .select("*");
+  if (sErr){
+    console.error("Error loading scores:", sErr);
+    document.body.style.cursor="default";
+    return;
+  }
+
 trophies = players.map(()=>0);
 
 scores.forEach(r => {
@@ -431,17 +439,12 @@ scores.forEach(r => {
   }
 });
   
-  if (sErr){
-    console.error("Error loading scores:", sErr);
-    document.body.style.cursor="default";
-    return;
-  }
-
   players.forEach((name, i)=>{
     const rows = scores.filter(r => r.player === name);
     rows.forEach(r=>{
       const idx = r.round - 1;
       playerScores[i][idx] = r.points;
+      playerDnpHistory[i][idx] = typeof r.dnp === "boolean" ? r.dnp : null;
    if(r.handicap != null){
   playerHcpHistory[i][r.round - 1] = r.handicap;
 }
@@ -479,42 +482,69 @@ renderStatsGrid();
   document.body.style.cursor = "default";
 }
 
+function getRoundHandicap(i){
+  const roundIndex = currentRound-1;
+  if(playerHcpHistory[i][roundIndex] != null){
+    return playerHcpHistory[i][roundIndex];
+  }
+  for(let round=roundIndex-1; round>=0; round--){
+    if(playerNextHcpHistory[i][round] != null) return playerNextHcpHistory[i][round];
+    if(playerHcpHistory[i][round] != null) return playerHcpHistory[i][round];
+  }
+  return null;
+}
+
+function getLeaderboardRows(){
+  const totals = players.map((name,i)=>{
+    const scored = playerScores[i].filter(v => v!=null);
+    const vals = scored.slice().sort((a,b)=>b-a).slice(0,5);
+    const sum  = vals.reduce((a,b)=>a+b,0);
+    return { idx:i, name, total: sum, wins: trophies[i] ?? 0, roundsScored: scored.length };
+ }).sort((a,b)=>{
+  if(a.roundsScored === 0 || b.roundsScored === 0){
+    return Number(b.roundsScored > 0) - Number(a.roundsScored > 0);
+  }
+  if(b.total !== a.total){
+    return b.total - a.total; // sort by score first
+  }
+  return b.wins - a.wins; // 🏆 tiebreaker
+});
+
+  const isTie = (a,b) => a && b && a.roundsScored > 0 && b.roundsScored > 0 && a.total === b.total && a.wins === b.wins;
+  totals.forEach((p,index)=>{
+    if(p.roundsScored === 0){
+      p.rank = null;
+      p.tied = false;
+      p.position = "—";
+      return;
+    }
+    const previous = totals[index-1];
+    p.rank = isTie(p,previous) ? previous.rank : index+1;
+    p.tied = Boolean(isTie(p,previous) || isTie(p,totals[index+1]));
+    p.position = p.tied ? `T${p.rank}` : String(p.rank);
+  });
+  return totals;
+}
+
  function renderLeaderboard(){
   const tbody = document.getElementById("playersTable");
   tbody.innerHTML = "";
 
-  const totals = players.map((name,i)=>{
-    const vals = playerScores[i].filter(v => v!=null).sort((a,b)=>b-a).slice(0,5);
-    const sum  = vals.reduce((a,b)=>a+b,0);
-    return { idx:i, name, total: sum };
- }).sort((a,b)=>{
-  if(b.total !== a.total){
-    return b.total - a.total; // sort by score first
-  }
-  return trophies[b.idx] - trophies[a.idx]; // 🏆 tiebreaker
-});;
+  const totals = getLeaderboardRows();
 
-  totals.forEach((p,rank)=>{
+  totals.forEach(p=>{
     const i = p.idx;
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
-      <td>${rank<3?["🥇","🥈","🥉"][rank]:rank+1}</td>
+      <td>${p.rank != null && p.rank<=3 ? ["🥇","🥈","🥉"][p.rank-1] + (p.tied ? ` ${p.position}` : "") : p.position}</td>
       <td>${players[i]}</td>
-     <td><input type="number" id="hcp_${i}" value="${
-  currentRound > 1
-    ? (playerNextHcpHistory[i][currentRound-2] ?? currentHcp[i])
-    : (playerHcpHistory[i][0] ?? currentHcp[i])
-}" ${unlocked?"":"disabled"}></td>
+     <td><input type="number" id="hcp_${i}" value="${getRoundHandicap(i) ?? ""}" ${unlocked?"":"disabled"}></td>
       <td><input type="number" id="pts_${i}" value="${playerScores[i][currentRound-1] ?? ""}" ${unlocked?"":"disabled"}></td>
       <td>${playerAdjHistory[i][currentRound-1] ?? ""}</td>
 <td>${playerNextHcpHistory[i][currentRound-1] ?? ""}</td>
       <td>${p.total}</td>
-      <td>
-        <input type="checkbox" disabled 
-          ${(playerScores[i][currentRound-1]==null || lastAdj[i]==="DNP") ? "checked" : ""}
-        >
-      </td>
+      <td>${playerScores[i][currentRound-1] == null ? (playerDnpHistory[i][currentRound-1] === false ? "DNF" : "DNP") : ""}</td>
       <td>🏆 ${trophies[i]}</td>
     `;
 
@@ -685,14 +715,36 @@ async function confirmReset(){
     if(!unlocked) return alert("Unlock required");
     console.log("=== CalculateHandicaps Round", currentRound);
 
-    // ✅ FIX 1 — ADD average calculation
-    let roundScores = [];
+    // Validate every input before changing scores or saving the round.
+    const roundInputs = [];
     for(let i=0; i<players.length; i++){
-      const ptsVal = parseInt(document.getElementById(`pts_${i}`)?.value);
-      if(!isNaN(ptsVal)){
-        roundScores.push(ptsVal);
+      const pointsInput = document.getElementById(`pts_${i}`);
+      const handicapInput = document.getElementById(`hcp_${i}`);
+      if(!pointsInput || !handicapInput){
+        return alert("Unable to read every player's inputs. Reload the scores page and try again.");
       }
+
+      const pointsText = pointsInput.value.trim();
+      const handicapText = handicapInput.value.trim();
+      const points = pointsText === "" ? null : Number(pointsText);
+      const handicap = handicapText === "" ? getRoundHandicap(i) : Number(handicapText);
+      if(pointsInput.validity?.badInput ||
+         (points != null && (!Number.isSafeInteger(points) || points < 0))){
+        return alert(`${players[i]}: enter whole-number points, or leave blank / enter 0 for DNP.`);
+      }
+      if(handicapInput.validity?.badInput ||
+         (handicap != null && !Number.isFinite(handicap))){
+        return alert(`${players[i]}: enter a valid handicap.`);
+      }
+      if(points != null && points !== 0 && handicap == null){
+        return alert(`${players[i]}: enter a playing handicap before saving a score.`);
+      }
+      const wasDnf = playerScores[i][currentRound-1] == null && playerDnpHistory[i][currentRound-1] === false;
+      const dnp = points === 0 || (points == null && !wasDnf);
+      roundInputs.push({ points: points === 0 ? null : points, handicap, dnp });
     }
+
+    const roundScores = roundInputs.filter(r=>r.points != null).map(r=>r.points);
 
     if(roundScores.length < 4){
       return alert("Minimum 4 players required for handicap calculation");
@@ -713,18 +765,41 @@ const avg = Math.round(
 );
     console.log("Round Average:", avg);
 
+    // Resolve the winner before changing any in-memory or saved scores.
+    const topScore = Math.max(...roundScores);
+    const winners = roundInputs.reduce((indices,r,i)=>{
+      if(r.points === topScore) indices.push(i);
+      return indices;
+    },[]);
+    let winnerIndex = winners[0];
+    if(winners.length > 1){
+      let message = `Round ${currentRound} tie!\nSelect winner:\n\n`;
+      winners.forEach((i,idx)=>{
+        message += `${idx+1}. ${players[i]} (${topScore} pts)\n`;
+      });
+      const choice = prompt(message);
+      const selected = Number(choice);
+      if(choice == null || !Number.isInteger(selected) || selected < 1 || selected > winners.length){
+        showToast("Scores not saved. Select a round winner to save this tied round.");
+        return;
+      }
+      winnerIndex = winners[selected-1];
+    }
+
     for(let i=0; i<players.length; i++){
-      const hcpVal = parseFloat(document.getElementById(`hcp_${i}`)?.value) || 0;
-      const ptsVal = parseInt(document.getElementById(`pts_${i}`)?.value);
+      const hcpVal = roundInputs[i].handicap;
+      const ptsVal = roundInputs[i].points;
       console.log("Player:", players[i], "hcp:", hcpVal, "pts:", ptsVal);
 
-    if(!isNaN(ptsVal)){
-
-  // 🟡 DNP RULE
-  if(ptsVal === 0){
-    lastAdj[i] = "DNP";
+  // Blank and zero both clear a score and preserve the player's known handicap.
+  if(ptsVal == null){
+    lastAdj[i] = roundInputs[i].dnp ? "DNP" : "DNF";
     nextHcp[i] = hcpVal; // no change
     playerScores[i][currentRound-1] = null; // no score counted
+    playerDnpHistory[i][currentRound-1] = roundInputs[i].dnp;
+    playerAdjHistory[i][currentRound-1] = null;
+    playerHcpHistory[i][currentRound-1] = hcpVal;
+    playerNextHcpHistory[i][currentRound-1] = hcpVal;
     currentHcp[i] = hcpVal;
     continue; // skip rest of logic
   }
@@ -763,54 +838,11 @@ const avg = Math.round(
       playerAdjHistory[i][currentRound-1] = lastAdj[i];
 playerNextHcpHistory[i][currentRound-1] = nextHcp[i];
         playerScores[i][currentRound-1] = ptsVal;
+        playerDnpHistory[i][currentRound-1] = false;
         currentHcp[i] = hcpVal;
         playerHcpHistory[i][currentRound-1] = hcpVal;
-      }
     }
 
-    // 🏆 DETERMINE WINNER FIRST
-
-let winnerIndex = null;
-
-let topScore = -Infinity;
-let winners = [];
-
-for(let i=0; i<players.length; i++){
-  const pts = playerScores[i][currentRound-1];
-
-  if(pts != null){
-    if(pts > topScore){
-      topScore = pts;
-      winners = [i];
-    } else if(pts === topScore){
-      winners.push(i);
-    }
-  }
-}
-
-// SINGLE WINNER
-if(winners.length === 1){
-  winnerIndex = winners[0];
-}
-
-// TIE → prompt
-else if(winners.length > 1){
-
-  let message = `Round ${currentRound} tie!\nSelect winner:\n\n`;
-
-  winners.forEach((i, idx)=>{
-    message += `${idx+1}. ${players[i]} (${topScore} pts)\n`;
-  });
-
-  let choice = prompt(message);
-  winnerIndex = winners[parseInt(choice)-1];
-}
-
-// APPLY TROPHY
-if(winnerIndex != null){
-  trophies[winnerIndex]++;
-  showToast(`🏆 ${players[winnerIndex]} wins Round ${currentRound}!`);
-}
     const updates = players.map((name,i)=>{
       const vals = playerScores[i].filter(v => v!=null).sort((a,b)=>b - a).slice(0,5);
       const total = vals.reduce((a,b)=>a+b,0);
@@ -819,7 +851,8 @@ if(winnerIndex != null){
   round: currentRound,
   handicap: currentHcp[i],
   points: playerScores[i][currentRound - 1],
-  adj: lastAdj[i] === "DNP" ? null : parseInt(lastAdj[i]),
+   adj: playerScores[i][currentRound - 1] == null ? null : parseInt(lastAdj[i]),
+   dnp: playerDnpHistory[i][currentRound - 1],
   next_handicap: nextHcp[i],
   total: total,
   winner: (winnerIndex === i) // ✅ THIS LINE
@@ -844,21 +877,12 @@ if(winnerIndex != null){
 }
 
 async function exportLeaderboardCSV(){
-  const rows = players.map((name,i)=>{
-    const vals = playerScores[i]
-      .filter(v => v!=null)
-      .sort((a,b)=>b-a)
-      .slice(0,5);
-
-    return {
-      Player: name,
-      Total: vals.reduce((a,b)=>a+b,0),
-      Trophies: trophies[i]
-    };
-  });
-
-  // ✅ SORT BY TOTAL (DESCENDING)
-  rows.sort((a,b)=>b.Total - a.Total);
+  const rows = getLeaderboardRows().map(p=>({
+    Rank: p.position,
+    Player: p.name,
+    Total: p.total,
+    Trophies: p.wins
+  }));
 
   downloadCSV("leaderboard", toCSV(rows));
 }
@@ -924,3 +948,4 @@ function renderStatsGrid(){
 
 </body>
 </html>
+
