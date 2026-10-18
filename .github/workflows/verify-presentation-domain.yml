@@ -1,0 +1,32 @@
+name: Verify 2026 domain and presentation
+on:
+  push:
+    branches: [verify/presentation-domain-cutover]
+permissions:
+  contents: read
+  pages: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify GitHub Pages domain ownership
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for repo in barford-golf-society barford-golf-society-2027-dev; do
+            echo "REPOSITORY: $repo"
+            curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/Highstreetwebco/$repo/pages" | python3 -c 'import json,sys; j=json.load(sys.stdin); print("PAGES_DOMAIN:",j.get("cname"),"SITE:",j.get("html_url"),"STATUS:",j.get("status"))'
+          done
+      - name: Verify live domain and presentation RSVP content
+        run: |
+          for domain in barfordgolf.co.uk www.barfordgolf.co.uk; do
+            echo "DOMAIN: $domain"
+            curl -sS -L --max-time 20 -o /tmp/barford-latest -w 'HTTP:%{http_code} FINAL:%{url_effective} TLS:%{ssl_verify_result}\n' "https://$domain/?version=2026-presentation-cutover"
+            grep -o -m1 '<title>[^<]*' /tmp/barford-latest || true
+            if grep -q '2026 Presentation Evening' /tmp/barford-latest && grep -q 'id="answerYes"' /tmp/barford-latest && grep -q 'id="attendees"' /tmp/barford-latest; then
+              echo "RESULT: 2026 presentation yes-no form and attendee list confirmed"
+            else
+              echo "RESULT: waiting for correct 2026 presentation content"
+              exit 1
+            fi
+          done
