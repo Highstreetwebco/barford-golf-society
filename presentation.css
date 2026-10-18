@@ -18,3 +18,20 @@ form label{display:block;font-size:13px;font-weight:750;margin-bottom:10px}input
 @media(max-width:750px){.site-head{padding:16px 21px}.main-wrap{padding:0 16px 48px}.invitation{padding:58px 17px 30px;border-radius:0 0 23px 23px}.event-facts{grid-template-columns:1fr;max-width:510px;margin-top:28px}.event-fact{padding:16px 21px}.event-fact+.event-fact{border-left:none;border-top:1px solid #dac59138}.response-card{margin:22px auto 33px}.guest-list{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-total{padding:9px 12px}.guest-total strong{font-size:25px}}
 @media(max-width:490px){.brand-name{font-size:13px}.season-tag{font-size:9px;padding:8px 10px}.site-head{gap:8px}.brand-symbol{width:39px;height:39px}.guest-list{grid-template-columns:1fr}.response-actions{grid-template-columns:1fr}.guest-section{padding:25px 20px}.list-heading{align-items:flex-start}.guest-total{flex-direction:column;gap:0}.site-footer{flex-direction:column;gap:5px}.invitation{padding-top:45px}}
 @media(prefers-reduced-motion:reduce){.respond{transition:none}}
+/* 2026 presentation invitation: one compact page; expandable guest list. */
+.guest-reveal{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:52px;margin:20px 0 0;border:1px solid #a4b9ab;border-radius:10px;background:#f0f5ed;color:#174634;font:750 15px/1.3 Inter,system-ui,sans-serif;cursor:pointer;transition:background .2s}
+.guest-reveal:hover{background:#e0eee0}.guest-reveal:focus-visible{outline:3px solid #c9a55b;outline-offset:3px}
+.guest-section[hidden]{display:none!important}
+.response-card .guest-section{margin:18px 0 0;padding:20px 0 0;border:0;border-top:1px solid #dce3db;border-radius:0;background:transparent;box-shadow:none}
+.response-card .guest-section h2{font-size:clamp(26px,3vw,31px)}
+.response-card .guest-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+.response-card{margin:24px auto 40px}
+.invitation{padding-top:48px;padding-bottom:32px}
+.event-facts{margin-top:26px}
+.main-wrap{padding-bottom:26px}
+@media(max-width:600px){
+ .invitation{padding-top:36px;padding-bottom:23px}
+ .intro{font-size:15px}
+ .response-card{padding-top:25px;padding-bottom:22px}
+ .response-card .guest-list{grid-template-columns:1fr}
+}

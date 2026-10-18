@@ -121,7 +121,7 @@
       const details = event[0];
       const date = new Date(details.date + 'T12:00:00');
       el('presentationDate').textContent = date.toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
-      el('presentationVenue').textContent = details.location || 'The Granville';
+      el('presentationVenue').textContent = 'To be confirmed';
       await refreshGuests();
       try { nameInput.value = localStorage.getItem(LAST_REPLY_KEY) || ''; } catch {}
       ready = true;
@@ -136,6 +136,14 @@
       attendeeList.append(note);
     }
   }
+  const guestTrigger = el('showAttendees'), guestPanel = el('guestSection');
+  guestTrigger.addEventListener('click', () => {
+    const opening = guestPanel.hidden;
+    guestPanel.hidden = !opening;
+    guestTrigger.setAttribute('aria-expanded',String(opening));
+    guestTrigger.innerHTML = opening ? "Hide who's coming <span aria-hidden=\"true\">↑</span>" : "See who's coming <span aria-hidden=\"true\">↓</span>";
+    if (opening && ready) refreshGuests().catch(() => {});
+  });
   yesButton.addEventListener('click', () => save(true));
   noButton.addEventListener('click', () => save(false));
   el('presentationForm').addEventListener('submit', event => event.preventDefault());

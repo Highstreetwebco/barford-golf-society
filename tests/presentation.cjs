@@ -49,6 +49,12 @@ async function test(width) {
   await page.goto('http://127.0.0.1:8493/');
   await page.locator('#answerYes:not([disabled])').waitFor();
   assert.match((await page.locator('#pageTitle').innerText()).replace(/\s+/g,' '),/Presentation Evening/);
+  assert.equal(await page.locator('#guestSection').isVisible(),false,'Guest list must start hidden');
+  assert.equal(await page.locator('#showAttendees').innerText().then(s=>s.trim()),"See who's coming ↓");
+  assert.equal(await page.locator('#presentationVenue').innerText(),'To be confirmed');
+  await page.locator('#showAttendees').click();
+  assert.equal(await page.locator('#guestSection').isVisible(),true);
+  assert.equal(await page.locator('#showAttendees').getAttribute('aria-expanded'),'true');
   assert.equal(await page.locator('#guestCount').innerText(),'3');
   assert.equal(await page.locator('#attendees li').count(),3);
   assert.equal(await page.locator('.hero-buttons').count(),0);
@@ -67,6 +73,8 @@ async function test(width) {
   await page.locator('#answerNo').click();
   await page.locator('#responseMessage').filter({hasText:/More than one RSVP/}).waitFor();
   assert.equal(updates,1,'Ambiguous names must not update an existing RSVP');
+  await page.locator('#showAttendees').click();
+  assert.equal(await page.locator('#guestSection').isVisible(),false,'Guest list must collapse again');
   await page.screenshot({path:path.join(root,'presentation-'+width+'.png'),fullPage:true});
   assert.deepEqual(errors,[]);
   console.log('PASS '+width+'px: presentation details, RSVP insert/edit, duplicate-name guard, attendees and layout');

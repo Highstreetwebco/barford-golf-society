@@ -8,8 +8,8 @@
   <title>2026 Presentation Evening | Barford Golf Society</title>
   <link rel="canonical" href="https://barfordgolf.co.uk/">
   <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="presentation.css?v=2026-presentation-1">
-  <script src="presentation.js?v=2026-presentation-1" defer></script>
+  <link rel="stylesheet" href="presentation.css?v=2026-presentation-2">
+  <script src="presentation.js?v=2026-presentation-2" defer></script>
 </head>
 <body>
   <header class="site-head">
@@ -28,7 +28,7 @@
       <p class="intro">A chance to round off the golf season together, celebrate the year's achievements and enjoy an evening with the society.</p>
       <div class="event-facts" aria-label="Presentation evening details">
         <div class="event-fact"><span class="fact-label">When</span><strong id="presentationDate">Saturday 7 November 2026</strong></div>
-        <div class="event-fact"><span class="fact-label">Where</span><strong id="presentationVenue">The Granville</strong></div>
+        <div class="event-fact"><span class="fact-label">Where</span><strong id="presentationVenue">To be confirmed</strong></div>
         <div class="event-fact"><span class="fact-label">Time</span><strong>To be confirmed</strong></div>
       </div>
     </section>
@@ -47,9 +47,8 @@
         <p class="form-message" id="responseMessage" role="status" aria-live="polite">Loading the evening's responses…</p>
         <p class="response-note">Already replied? Enter the same name to change your answer.</p>
       </form>
-    </section>
-
-    <section class="guest-section" aria-labelledby="guestHeading">
+        <button id="showAttendees" type="button" class="guest-reveal" aria-expanded="false" aria-controls="guestSection">See who's coming <span aria-hidden="true">↓</span></button>
+      <section class="guest-section" id="guestSection" aria-labelledby="guestHeading" hidden>
       <div class="list-heading">
         <div>
           <p class="section-prefix">THE GUEST LIST</p>
@@ -60,8 +59,11 @@
       <p class="guest-note">Members who have confirmed they'll be there.</p>
       <ul class="guest-list" id="attendees" aria-live="polite"><li class="guest-placeholder">Loading attendees…</li></ul>
       <p class="guest-footer">The list updates when a response is saved.</p>
+      </section>
     </section>
+
+
   </main>
-  <footer class="site-footer"><span>© 2026 Barford Golf Society</span><span>See you at The Granville.</span></footer>
+  <footer class="site-footer"><span>© 2026 Barford Golf Society</span><span>See you at the presentation evening.</span></footer>
 </body>
 </html>
