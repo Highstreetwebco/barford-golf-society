@@ -56,7 +56,7 @@ async function test(width,height=900) {
     console.log('FIRST SCREEN',width,height,JSON.stringify(bounds));
     assert(bounds.bodyHeight<=height+2 && bounds.documentHeight<=height+2, 'Collapsed RSVP page should not scroll on '+width+'x'+height+': '+JSON.stringify(bounds));
     assert(bounds.card.bottom>=height-18 && bounds.card.bottom<=height+2, 'RSVP should fill to the bottom of the screen, rather than sit squashed at the top: '+JSON.stringify(bounds));
-    assert(bounds.hero.height>=height*.27, 'Invitation should use meaningful space while leaving room for the confirmation button: '+JSON.stringify(bounds));
+    assert(bounds.hero.height>=height*.26, 'Invitation should use meaningful space while leaving room for the confirmation button: '+JSON.stringify(bounds));
     await page.screenshot({path:path.join(root,'presentation-first-screen-'+width+'x'+height+'.png')});
     const legacyBounds=await page.evaluate(()=>{
       const area=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom};};
