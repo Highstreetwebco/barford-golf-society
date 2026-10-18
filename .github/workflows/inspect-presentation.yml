@@ -1,0 +1,29 @@
+name: Inspect 2026 presentation (read only)
+on:
+  push:
+    branches: [research/presentation-rsvp]
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Inspect public events and RSVP columns
+      run: |
+        node <<'JS'
+        const fs=require('fs');
+        const html=fs.readFileSync('index.html','utf8');
+        const key=html.match(/const SUPABASE_ANON_KEY\s*=\s*'([^']+)'/)?.[1];
+        if(!key)throw Error('No public key in homepage');
+        const root='https://tzzkgfehtnuizamzlbgr.supabase.co/rest/v1/';
+        const headers={apikey:key,Authorization:'Bearer '+key};
+        async function read(path){
+          let r=await fetch(root+path,{headers});
+          let data=await r.json();
+          console.log(path,'status',r.status,'result',JSON.stringify(data).slice(0,3500));
+        }
+        await read('events?select=id,name,location,date,max_players,cancelled,description&order=date.desc&limit=4');
+        let r=await fetch(root+'rsvps?event_id=eq.30&select=*&limit=100',{headers});
+        const rows=await r.json();
+        console.log('PRESENTATION RSVPS',r.status,'count',Array.isArray(rows)?rows.length:'error','columns',Array.isArray(rows)&&rows.length?Object.keys(rows[0]):'none');
+        if(Array.isArray(rows)) console.log('YES ATTENDEES',JSON.stringify(rows.filter(x=>x.attending&&!x.reserve).map(x=>x.name).slice(0,80)));
+        JS
