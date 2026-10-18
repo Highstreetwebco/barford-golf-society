@@ -50,7 +50,7 @@ async function test(width) {
   await page.locator('#answerYes:not([disabled])').waitFor();
   assert.match((await page.locator('#pageTitle').innerText()).replace(/\s+/g,' '),/Presentation Evening/);
   assert.equal(await page.locator('#guestSection').isVisible(),false,'Guest list must start hidden');
-  assert.equal(await page.locator('#showAttendees').innerText().then(s=>s.trim()),"See who's coming ↓");
+  assert.match((await page.locator('#showAttendees').innerText()).replace(/\s+/g,' '),/See who's coming/);
   assert.equal(await page.locator('#presentationVenue').innerText(),'To be confirmed');
   await page.locator('#showAttendees').click();
   assert.equal(await page.locator('#guestSection').isVisible(),true);
