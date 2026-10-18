@@ -50,13 +50,22 @@ async function test(width,height=900) {
   await page.locator('#answerYes:not([disabled])').waitFor();
   if (width <= 750) {
     const bounds=await page.evaluate(()=>{
+      const box=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height};};
+      return {header:box('.site-head'),hero:box('.invitation'),card:box('.response-card'),title:box('#pageTitle'),name:box('#memberName'),yes:box('#answerYes'),no:box('#answerNo'),list:box('#showAttendees'),bodyHeight:document.body.scrollHeight,documentHeight:document.documentElement.scrollHeight,viewHeight:innerHeight,viewWidth:innerWidth};
+    });
+    console.log('FIRST SCREEN',width,height,JSON.stringify(bounds));
+    assert(bounds.bodyHeight<=height+2 && bounds.documentHeight<=height+2, 'Collapsed RSVP page should not scroll on '+width+'x'+height+': '+JSON.stringify(bounds));
+    assert(bounds.card.bottom>=height-18 && bounds.card.bottom<=height+2, 'RSVP should fill to the bottom of the screen, rather than sit squashed at the top: '+JSON.stringify(bounds));
+    assert(bounds.hero.height>=height*.30, 'Invitation should use meaningful space on the phone: '+JSON.stringify(bounds));
+    await page.screenshot({path:path.join(root,'presentation-first-screen-'+width+'x'+height+'.png')});
+    const legacyBounds=await page.evaluate(()=>{
       const area=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom};};
       return {header:area('.site-head'),title:area('#pageTitle'),date:area('#presentationDate'),venue:area('#presentationVenue'),name:area('#memberName'),yes:area('#answerYes'),no:area('#answerNo'),list:area('#showAttendees'),width:document.documentElement.scrollWidth,viewWidth:innerWidth,viewHeight:innerHeight};
     });
-    assert(bounds.width<=bounds.viewWidth+1,'Phone must have no horizontal overflow');
+    assert(legacyBounds.width<=legacyBounds.viewWidth+1,'Phone must have no horizontal overflow');
     for(const control of ['name','yes','no','list']) {
-      assert(bounds[control].top>=0 && bounds[control].bottom<=bounds.viewHeight-6,
-        control+' must be fully visible without scrolling on '+width+'x'+height+': '+JSON.stringify(bounds));
+      assert(legacyBounds[control].top>=0 && legacyBounds[control].bottom<=legacyBounds.viewHeight-6,
+        control+' must be fully visible without scrolling on '+width+'x'+height+': '+JSON.stringify(legacyBounds));
     }
     assert.equal(await page.evaluate(()=>scrollY),0,'Phone must not scroll to display the form');
   }
@@ -96,5 +105,5 @@ async function test(width,height=900) {
 }
 (async()=>{
  await new Promise(r=>app.listen(8493,'127.0.0.1',r));
- try{await test(320,568);await test(375,667);await test(390,844);await test(1280,900);}finally{app.close();}
+ try{await test(320,568);await test(360,640);await test(375,667);await test(390,844);await test(430,932);await test(1280,900);}finally{app.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
