@@ -60,7 +60,7 @@ async function test(width,height=900) {
     await page.screenshot({path:path.join(root,'presentation-first-screen-'+width+'x'+height+'.png')});
     const legacyBounds=await page.evaluate(()=>{
       const area=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom};};
-      return {header:area('.site-head'),title:area('#pageTitle'),date:area('#presentationDate'),venue:area('#presentationVenue'),name:area('#memberName'),yes:area('#answerYes'),no:area('#answerNo'),list:area('#showAttendees'),width:document.documentElement.scrollWidth,viewWidth:innerWidth,viewHeight:innerHeight};
+      return {header:area('.site-head'),title:area('#pageTitle'),date:area('#presentationDate'),venue:area('#presentationVenue'),name:area('#memberName'),yes:area('#answerYes'),no:area('#answerNo'),confirm:area('#confirmRsvp'),list:area('#showAttendees'),width:document.documentElement.scrollWidth,viewWidth:innerWidth,viewHeight:innerHeight};
     });
     assert(legacyBounds.width<=legacyBounds.viewWidth+1,'Phone must have no horizontal overflow');
     for(const control of ['name','yes','no','confirm','list']) {
