@@ -10,10 +10,10 @@ const app=http.createServer((req,res)=>{
   if(!file.startsWith(root+path.sep)) { res.writeHead(403);res.end();return; }
   fs.readFile(file,(err,data)=>{if(err){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream'});res.end(data);});
 });
-async function test(width) {
+async function test(width,height=900) {
  const browser=await chromium.launch({headless:true});
  try {
-  const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});
+  const context=await browser.newContext({viewport:{width,height},serviceWorkers:'block'});
   const page=await context.newPage();
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
@@ -48,6 +48,19 @@ async function test(width) {
   });
   await page.goto('http://127.0.0.1:8493/');
   await page.locator('#answerYes:not([disabled])').waitFor();
+  if (width <= 750) {
+    const bounds=await page.evaluate(()=>{
+      const area=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom};};
+      return {header:area('.site-head'),title:area('#pageTitle'),date:area('#presentationDate'),venue:area('#presentationVenue'),name:area('#memberName'),yes:area('#answerYes'),no:area('#answerNo'),list:area('#showAttendees'),width:document.documentElement.scrollWidth,viewWidth:innerWidth,viewHeight:innerHeight};
+    });
+    assert(bounds.width<=bounds.viewWidth+1,'Phone must have no horizontal overflow');
+    for(const control of ['name','yes','no','list']) {
+      assert(bounds[control].top>=0 && bounds[control].bottom<=bounds.viewHeight-6,
+        control+' must be fully visible without scrolling on '+width+'x'+height+': '+JSON.stringify(bounds));
+    }
+    assert.equal(await page.evaluate(()=>scrollY),0,'Phone must not scroll to display the form');
+  }
+
   assert.match((await page.locator('#pageTitle').innerText()).replace(/\s+/g,' '),/Presentation Evening/);
   assert.equal(await page.locator('#guestSection').isVisible(),false,'Guest list must start hidden');
   assert.match((await page.locator('#showAttendees').innerText()).replace(/\s+/g,' '),/See who's coming/);
@@ -83,5 +96,5 @@ async function test(width) {
 }
 (async()=>{
  await new Promise(r=>app.listen(8493,'127.0.0.1',r));
- try{await test(390);await test(1280);}finally{app.close();}
+ try{await test(320,568);await test(375,667);await test(390,844);await test(1280,900);}finally{app.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
