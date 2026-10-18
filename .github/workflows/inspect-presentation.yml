@@ -10,7 +10,7 @@ jobs:
     - name: Inspect public events and RSVP columns
       run: |
         node <<'JS'
-        const fs=require('fs');
+        const fs=await import('node:fs');
         const html=fs.readFileSync('index.html','utf8');
         const key=html.match(/const SUPABASE_ANON_KEY\s*=\s*'([^']+)'/)?.[1];
         if(!key)throw Error('No public key in homepage');
