@@ -21,10 +21,10 @@ jobs:
         run: |
           for domain in barfordgolf.co.uk www.barfordgolf.co.uk; do
             echo "DOMAIN: $domain"
-            curl -sS -L --max-time 20 -o /tmp/barford-latest -w 'HTTP:%{http_code} FINAL:%{url_effective} TLS:%{ssl_verify_result}\n' "https://$domain/?version=2026-presentation-cutover"
+            curl -sS -L --max-time 20 -o /tmp/barford-latest -w 'HTTP:%{http_code} FINAL:%{url_effective} TLS:%{ssl_verify_result}\n' "https://$domain/?version=2026-presentation-onepage-20261018"
             grep -o -m1 '<title>[^<]*' /tmp/barford-latest || true
-            if grep -q '2026 Presentation Evening' /tmp/barford-latest && grep -q 'id="answerYes"' /tmp/barford-latest && grep -q 'id="attendees"' /tmp/barford-latest; then
-              echo "RESULT: 2026 presentation yes-no form and attendee list confirmed"
+            if grep -q '2026 Presentation Evening' /tmp/barford-latest && grep -q 'id="answerYes"' /tmp/barford-latest && grep -q 'id="showAttendees"' /tmp/barford-latest && grep -q 'id="guestSection"' /tmp/barford-latest && grep -q 'To be confirmed' /tmp/barford-latest; then
+              echo "RESULT: 2026 single-page RSVP, venue TBC, expandable attendee list confirmed"
             else
               echo "RESULT: waiting for correct 2026 presentation content"
               exit 1
