@@ -56,7 +56,7 @@ async function test(width,height=900) {
     console.log('FIRST SCREEN',width,height,JSON.stringify(bounds));
     assert(bounds.bodyHeight<=height+2 && bounds.documentHeight<=height+2, 'Collapsed RSVP page should not scroll on '+width+'x'+height+': '+JSON.stringify(bounds));
     assert(bounds.card.bottom>=height-18 && bounds.card.bottom<=height+2, 'RSVP should fill to the bottom of the screen, rather than sit squashed at the top: '+JSON.stringify(bounds));
-    assert(bounds.hero.height>=height*.30, 'Invitation should use meaningful space on the phone: '+JSON.stringify(bounds));
+    assert(bounds.hero.height>=height*.27, 'Invitation should use meaningful space while leaving room for the confirmation button: '+JSON.stringify(bounds));
     await page.screenshot({path:path.join(root,'presentation-first-screen-'+width+'x'+height+'.png')});
     const legacyBounds=await page.evaluate(()=>{
       const area=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom};};
@@ -89,6 +89,11 @@ async function test(width,height=900) {
   assert.equal(await page.locator('#answerYes').getAttribute('aria-pressed'),'true');
   assert.equal(await page.locator('#answerNo').getAttribute('aria-pressed'),'false');
   assert.equal(await page.locator('#confirmRsvp').isEnabled(),true);
+  if(width<=750) {
+    const beforeConfirm=await page.locator('#confirmRsvp').boundingBox();
+    assert(beforeConfirm.y+beforeConfirm.height<=height-5,'Confirm button should remain visible after selecting Yes');
+    assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+2),'Selection must not trigger scrolling');
+  }
   await page.locator('#confirmRsvp').click();
   await page.locator('#responseMessage').filter({hasText:/Thank you/}).waitFor();
   assert.equal(inserts,1);

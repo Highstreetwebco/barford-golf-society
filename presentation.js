@@ -52,7 +52,7 @@
     yesButton.setAttribute('aria-pressed',String(answer === true));
     noButton.setAttribute('aria-pressed',String(answer === false));
     confirmButton.disabled = false;
-    showMessage(answer ? "You've selected Yes. Press Confirm RSVP to save." : "You've selected No. Press Confirm RSVP to save.");
+    showMessage(answer ? "Yes selected — tap Confirm RSVP." : "No selected — tap Confirm RSVP.");
   }
   function renderGuests() {
     const confirmed = rows.filter(row => row.attending === true && row.reserve !== true)
