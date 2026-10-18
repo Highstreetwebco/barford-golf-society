@@ -53,6 +53,26 @@ async function test(width,height=900) {
       const box=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height};};
       return {header:box('.site-head'),hero:box('.invitation'),card:box('.response-card'),title:box('#pageTitle'),name:box('#memberName'),yes:box('#answerYes'),no:box('#answerNo'),confirm:box('#confirmRsvp'),list:box('#showAttendees'),bodyHeight:document.body.scrollHeight,documentHeight:document.documentElement.scrollHeight,viewHeight:innerHeight,viewWidth:innerWidth};
     });
+    const eventDetailBounds=await page.evaluate(()=>{
+      const rect=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight};};
+      const hero=document.querySelector('.invitation');
+      return {hero:rect(hero),facts:rect(document.querySelector('.event-facts')),
+        date:rect(document.querySelector('#presentationDate')),
+        where:rect(document.querySelector('#presentationVenue')),
+        time:rect(document.querySelector('.event-fact:nth-child(3) strong')),
+        heroOverflow:getComputedStyle(hero).overflow};
+    });
+    console.log('EVENT DETAILS',width,height,JSON.stringify(eventDetailBounds));
+    for(const detail of ['date','where','time']) {
+      const part=eventDetailBounds[detail], hero=eventDetailBounds.hero;
+      assert(part.width>20 && part.height>=12,'The '+detail+' detail must have actual readable size');
+      assert(part.top>=hero.top-1 && part.bottom<=hero.bottom-2,
+        detail+' is cut off outside the event heading: '+JSON.stringify(eventDetailBounds));
+      assert(part.left>=hero.left-1 && part.right<=hero.right+1,
+        detail+' extends beyond the mobile event card');
+    }
+    assert(eventDetailBounds.facts.bottom<=eventDetailBounds.hero.bottom-2,
+      'The entire When, Where and Time box must be inside the hero: '+JSON.stringify(eventDetailBounds));
     console.log('FIRST SCREEN',width,height,JSON.stringify(bounds));
     assert(bounds.bodyHeight<=height+2 && bounds.documentHeight<=height+2, 'Collapsed RSVP page should not scroll on '+width+'x'+height+': '+JSON.stringify(bounds));
     assert(bounds.card.bottom>=height-18 && bounds.card.bottom<=height+2, 'RSVP should fill to the bottom of the screen, rather than sit squashed at the top: '+JSON.stringify(bounds));
