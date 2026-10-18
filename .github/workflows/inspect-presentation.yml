@@ -26,4 +26,7 @@ jobs:
         const rows=await r.json();
         console.log('PRESENTATION RSVPS',r.status,'count',Array.isArray(rows)?rows.length:'error','columns',Array.isArray(rows)&&rows.length?Object.keys(rows[0]):'none');
         if(Array.isArray(rows)) console.log('YES ATTENDEES',JSON.stringify(rows.filter(x=>x.attending&&!x.reserve).map(x=>x.name).slice(0,80)));
+        const meta=await fetch(root,{headers:{...headers,Accept:'application/openapi+json'}});
+        const schema=await meta.json();
+        console.log('RSVP SCHEMA',JSON.stringify(schema.definitions?.rsvps||schema.components?.schemas?.rsvps||{}).slice(0,8000));
         JS
