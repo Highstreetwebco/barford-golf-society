@@ -48,14 +48,14 @@ async function test(width) {
   });
   await page.goto('http://127.0.0.1:8493/');
   await page.locator('#answerYes:not([disabled])').waitFor();
-  assert.match(await page.locator('#pageTitle').innerText(),/Presentation Evening/);
+  assert.match((await page.locator('#pageTitle').innerText()).replace(/\s+/g,' '),/Presentation Evening/);
   assert.equal(await page.locator('#guestCount').innerText(),'3');
   assert.equal(await page.locator('#attendees li').count(),3);
   assert.equal(await page.locator('.hero-buttons').count(),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'Horizontal mobile overflow');
   await page.locator('#memberName').fill('New Person');
   await page.locator('#answerYes').click();
-  await page.locator('#responseMessage').getByText(/Thank you/).waitFor();
+  await page.locator('#responseMessage').filter({hasText:/Thank you/}).waitFor();
   assert.equal(inserts,1);
   assert.equal(await page.locator('#guestCount').innerText(),'4');
   await page.locator('#answerNo').click();
@@ -65,7 +65,7 @@ async function test(width) {
   assert.equal(await page.locator('#guestCount').innerText(),'3');
   await page.locator('#memberName').fill('Nick');
   await page.locator('#answerNo').click();
-  await page.locator('#responseMessage').getByText(/More than one RSVP/).waitFor();
+  await page.locator('#responseMessage').filter({hasText:/More than one RSVP/}).waitFor();
   assert.equal(updates,1,'Ambiguous names must not update an existing RSVP');
   await page.screenshot({path:path.join(root,'presentation-'+width+'.png'),fullPage:true});
   assert.deepEqual(errors,[]);
