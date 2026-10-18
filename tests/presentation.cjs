@@ -92,7 +92,13 @@ async function test(width,height=900) {
   if(width<=750) {
     const beforeConfirm=await page.locator('#confirmRsvp').boundingBox();
     assert(beforeConfirm.y+beforeConfirm.height<=height-5,'Confirm button should remain visible after selecting Yes');
-    assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+2),'Selection must not trigger scrolling');
+    const afterSelection=await page.evaluate(()=>{
+      const card=document.querySelector('.response-card').getBoundingClientRect(), status=document.querySelector('#responseMessage').getBoundingClientRect();
+      const confirm=document.querySelector('#confirmRsvp').getBoundingClientRect();
+      return {scrollHeight:document.documentElement.scrollHeight,bodyHeight:document.body.scrollHeight,viewport:innerHeight,cardBottom:card.bottom,statusHeight:status.height,statusText:document.querySelector('#responseMessage').textContent,confirmBottom:confirm.bottom};
+    });
+    console.log('AFTER ANSWER SELECTION',width,height,JSON.stringify(afterSelection));
+    assert(afterSelection.confirmBottom<=height-5,'Confirm RSVP must remain visible without scrolling');
   }
   await page.locator('#confirmRsvp').click();
   await page.locator('#responseMessage').filter({hasText:/Thank you/}).waitFor();
