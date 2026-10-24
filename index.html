@@ -8,8 +8,8 @@
   <title>2026 Presentation Evening | Barford Golf Society</title>
   <link rel="canonical" href="https://barfordgolf.co.uk/">
   <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="presentation.css?v=2026-event-details-visible-7">
-  <script src="presentation.js?v=2026-confirm-rsvp-5" defer></script>
+  <link rel="stylesheet" href="presentation.css?v=2026-rsvp-management-8">
+  <script src="presentation.js?v=2026-rsvp-management-8" defer></script>
 </head>
 <body>
   <header class="site-head">
@@ -46,7 +46,7 @@
         </div>
         <button type="submit" id="confirmRsvp" class="confirm-rsvp" disabled>Confirm RSVP</button>
         <p class="form-message" id="responseMessage" role="status" aria-live="polite">Loading the evening's responses…</p>
-        <p class="response-note">Already replied? Enter the same name to change your answer.</p>
+        <p class="response-note">Changes to existing replies require the committee password.</p>
       </form>
         <button id="showAttendees" type="button" class="guest-reveal" aria-expanded="false" aria-controls="guestSection">See who's coming <span aria-hidden="true">↓</span></button>
       <section class="guest-section" id="guestSection" aria-labelledby="guestHeading" hidden>
@@ -57,7 +57,7 @@
         </div>
         <div class="guest-total" aria-live="polite"><strong id="guestCount">—</strong><span>attending</span></div>
       </div>
-      <p class="guest-note">Members who have confirmed they'll be there.</p>
+      <p class="guest-note">Tap a name to edit their RSVP or remove them. Password required.</p>
       <ul class="guest-list" id="attendees" aria-live="polite"><li class="guest-placeholder">Loading attendees…</li></ul>
       <p class="guest-footer">The list updates when a response is saved.</p>
       </section>

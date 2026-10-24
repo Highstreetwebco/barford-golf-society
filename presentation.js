@@ -68,7 +68,13 @@
     }
     for (const row of confirmed) {
       const item = document.createElement('li');
-      item.textContent = String(row.name || '').trim() || 'Member';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'guest-edit';
+      button.textContent = String(row.name || '').trim() || 'Member';
+      button.setAttribute('aria-label', 'Edit RSVP for ' + button.textContent);
+      button.addEventListener('click', () => openEditor(row));
+      item.append(button);
       attendeeList.append(item);
     }
   }
@@ -98,13 +104,9 @@
         return;
       }
       if (matches.length === 1) {
-        const id = matches[0].id;
-        const saved = await query('rsvps?id=eq.' + encodeURIComponent(id) + '&event_id=eq.' + EVENT_ID, {
-          method: 'PATCH',
-          headers: { Prefer:'return=representation' },
-          body: JSON.stringify({ attending, reserve:false })
-        });
-        if (!Array.isArray(saved) || saved.length !== 1) throw new Error('Your existing response could not be updated. Please contact the committee.');
+        openEditor(matches[0], attending);
+        return;
+
       } else {
         const saved = await query('rsvps', {
           method: 'POST',
@@ -125,6 +127,95 @@
       showMessage(error?.message || 'Unable to save your response. Please try again.', true);
     } finally { setBusy(false); }
   }
+
+
+  // This confirmation guards accidental UI changes, not direct API access.
+  const editor = document.createElement('dialog');
+  editor.className = 'rsvp-editor';
+  editor.setAttribute('aria-labelledby', 'editTitle');
+  editor.innerHTML = `<form id="editRsvpForm">
+    <h2 id="editTitle">Manage RSVP</h2>
+    <p id="editPerson"></p>
+    <label for="editName">Name</label>
+    <input id="editName" maxlength="80" required autocomplete="off">
+    <label for="editAnswer">RSVP</label>
+    <select id="editAnswer"><option value="yes">Yes, coming</option><option value="no">No, not attending</option></select>
+    <label for="editPassword">Confirmation password</label>
+    <input id="editPassword" type="password" required autocomplete="off">
+    <p id="editMessage" role="status" aria-live="polite">Enter the committee password to confirm a change.</p>
+    <div class="edit-actions">
+      <button type="submit" id="editSave">Save changes</button>
+      <button type="button" id="editDelete" class="danger">Remove person</button>
+      <button type="button" id="editCancel">Cancel</button>
+    </div>
+  </form>`;
+  document.body.append(editor);
+  let editing = null, editorBusy = false, deleting = false;
+  function openEditor(row, answer = row.attending) {
+    if (editorBusy) return;
+    editing = { ...row };
+    deleting = false;
+    el('editPerson').textContent = row.name;
+    el('editName').value = row.name;
+    el('editAnswer').value = answer ? 'yes' : 'no';
+    el('editPassword').value = '';
+    el('editDelete').textContent = 'Remove person';
+    el('editMessage').textContent = 'Enter the committee password to confirm a change.';
+    if (!editor.open) editor.showModal();
+  }
+  editor.addEventListener('cancel', event => { if (editorBusy) event.preventDefault(); });
+  editor.addEventListener('close', () => { el('editPassword').value = ''; editing = null; });
+  el('editCancel').addEventListener('click', () => { if (!editorBusy) editor.close(); });
+  async function commitEdit(remove) {
+    if (editorBusy || !editing) return;
+    const name = el('editName').value.trim().replace(/\s+/g, ' ');
+    if (!remove && (name.length < 2 || name.length > 80)) {
+      el('editMessage').textContent = 'Please enter a name between 2 and 80 characters.';
+      return;
+    }
+    editorBusy = true;
+    editor.querySelectorAll('button,input,select').forEach(node => node.disabled = true);
+    try {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(el('editPassword').value));
+      const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+      if (hash !== '4f984359f32c66b7c8a0f39eaf5a9c81bf045817f850c0804976a0770b5f2b8b') {
+        throw new Error('Incorrect password. No changes have been made.');
+      }
+      await refreshGuests();
+      const current = rows.find(row => row.id === editing.id);
+      if (!current) throw new Error('This RSVP has already been removed. Close this window and refresh.');
+      if (current.name !== editing.name || current.attending !== editing.attending || current.reserve !== editing.reserve)
+        throw new Error('This RSVP has changed. Close this window and select the name again.');
+      if (!remove && rows.some(row => row.id !== editing.id && normalise(row.name) === normalise(name)))
+        throw new Error('Another RSVP already uses that name.');
+      const result = await query('rsvps?id=eq.' + encodeURIComponent(editing.id) + '&event_id=eq.' + EVENT_ID, {
+        method: remove ? 'DELETE' : 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        ...(remove ? {} : { body: JSON.stringify({ name, attending: el('editAnswer').value === 'yes', reserve: false }) })
+      });
+      if (!Array.isArray(result) || result.length !== 1) throw new Error('The change could not be confirmed. Refresh the list before trying again.');
+      editor.close();
+      showMessage(remove ? 'Person removed from the presentation evening list.' : 'RSVP updated.');
+      await refreshGuests().catch(() => showMessage('Change saved. Reload the page to refresh the list.'));
+    } catch (error) {
+      el('editMessage').textContent = error.message || 'Unable to save. Please try again.';
+      el('editPassword').value = '';
+    } finally {
+      editorBusy = false;
+      editor.querySelectorAll('button,input,select').forEach(node => node.disabled = false);
+    }
+  }
+  el('editRsvpForm').addEventListener('submit', event => { event.preventDefault(); void commitEdit(false); });
+  el('editDelete').addEventListener('click', () => {
+    if (!deleting) {
+      deleting = true;
+      el('editDelete').textContent = 'Confirm removal';
+      el('editMessage').textContent = 'Remove this person completely? Enter the password, then tap Confirm removal.';
+      el('editPassword').focus();
+      return;
+    }
+    void commitEdit(true);
+  });
 
   async function init() {
     try {

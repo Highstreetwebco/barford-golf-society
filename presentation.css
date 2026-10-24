@@ -400,3 +400,14 @@ form label{display:block;font-size:13px;font-weight:750;margin-bottom:10px}input
   .main-wrap { gap:8px; padding-bottom:6px; }
   .response-card { padding-top:12px; padding-bottom:12px; }
 }
+
+/* RSVP management dialog */
+.guest-edit{background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;flex:1;min-height:44px;padding:4px;overflow-wrap:anywhere}
+.guest-edit:hover{text-decoration:underline}.guest-edit:focus-visible{outline:3px solid #b89047;border-radius:4px}
+.rsvp-editor{width:min(440px,calc(100% - 24px));max-height:90dvh;overflow:auto;border:1px solid #b8c9bd;border-radius:18px;padding:24px;color:#17342d;background:#fff}
+.rsvp-editor::backdrop{background:#0b2825b8}.rsvp-editor h2{font:30px Georgia,serif;margin:0 0 10px}
+.rsvp-editor label{margin:14px 0 6px}.rsvp-editor select{width:100%;min-height:48px;padding:10px;border:1px solid #b8c9bd;border-radius:10px;font:inherit;background:#f8faf7}
+#editPerson{font-weight:700;overflow-wrap:anywhere}#editMessage{font-size:13px;line-height:1.5;min-height:40px}
+.edit-actions{display:grid;gap:10px}.edit-actions button{min-height:46px;border:1px solid #a4b9ab;border-radius:9px;background:#edf3eb;color:#17342d;font:700 14px system-ui;cursor:pointer}
+.edit-actions #editSave{background:#184c3a;color:white}.edit-actions .danger{background:#fff2ee;color:#972f25;border-color:#d7aaa4}
+.edit-actions button:disabled{opacity:.5;cursor:wait}
