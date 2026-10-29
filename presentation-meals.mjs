@@ -85,10 +85,9 @@ $('mealMember').addEventListener('change', () => {
   $('confirmNameText').textContent = pending.name;
   $('confirmNameDialog').showModal();
 });
-$('cancelMealName').addEventListener('click', () => $('confirmNameDialog').close());
-$('confirmNameDialog').addEventListener('close', () => {
-  if (!selected) { pending = null; $('mealMember').value = ''; }
-});
+function cancelName() { pending = null; $('mealMember').value = ''; }
+$('cancelMealName').addEventListener('click', () => { cancelName(); $('confirmNameDialog').close(); });
+$('confirmNameDialog').addEventListener('cancel', cancelName);
 $('confirmMealName').addEventListener('click', async () => {
   if (!pending || busy) return;
   selected = pending; pending = null;
