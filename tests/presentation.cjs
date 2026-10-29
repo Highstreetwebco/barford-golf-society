@@ -3,155 +3,118 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { chromium } = require('playwright');
-const root = path.resolve(__dirname,'..');
-const types = {'.html':'text/html','.css':'text/css','.js':'text/javascript','.ico':'image/x-icon','.png':'image/png'};
-const app=http.createServer((req,res)=>{
-  const file=path.join(root, decodeURIComponent(new URL(req.url,'http://127.0.0.1').pathname).replace(/^\//,'') || 'index.html');
-  if(!file.startsWith(root+path.sep)) { res.writeHead(403);res.end();return; }
-  fs.readFile(file,(err,data)=>{if(err){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream'});res.end(data);});
+const { createHash } = require('node:crypto');
+const root = path.resolve(__dirname, '..');
+const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.ico': 'image/x-icon' };
+const app = http.createServer((req, res) => {
+  const pathname = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname);
+  const file = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+  if (!file.startsWith(root + path.sep)) { res.writeHead(403); res.end(); return; }
+  fs.readFile(file, (error, content) => { if (error) { res.writeHead(404); res.end(); return; } res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' }); res.end(content); });
 });
-async function test(width,height=900) {
- const browser=await chromium.launch({headless:true});
- try {
-  const context=await browser.newContext({viewport:{width,height},serviceWorkers:'block'});
-  const page=await context.newPage();
-  const errors=[];
-  page.on('pageerror',e=>errors.push(e.message));
-  const event={id:30,name:'Barford End Of Season Presentation Evening',date:'2026-11-07',location:'The Granville',cancelled:false};
-  let data=[
-   {id:1,event_id:30,name:'Jack Example',attending:true,reserve:false,created_at:'2026-10-01T12:00:00Z'},
-   {id:2,event_id:30,name:'Gemma Example',attending:false,reserve:false,created_at:'2026-10-02T12:00:00Z'},
-   {id:3,event_id:30,name:'Nick',attending:true,reserve:false,created_at:'2026-10-03T12:00:00Z'},
-   {id:4,event_id:30,name:'Nick',attending:true,reserve:false,created_at:'2026-10-04T12:00:00Z'}
-  ];
-  let inserts=0,updates=0;
-  await context.route('https://tzzkgfehtnuizamzlbgr.supabase.co/rest/v1/**', async route=>{
-   const req=route.request(),url=new URL(req.url());
-   if(url.pathname.endsWith('/events'))return route.fulfill({json:[event]});
-   if(url.pathname.endsWith('/rsvps')){
-    if(req.method()==='GET')return route.fulfill({json:data});
-    const payload=req.postDataJSON();
-    if(req.method()==='PATCH'){
-     const id=Number(url.searchParams.get('id')?.replace('eq.',''));
-     const row=data.find(x=>x.id===id);
-     if(!row)return route.fulfill({json:[]});
-     Object.assign(row,payload);updates++;
-     return route.fulfill({json:[row]});
+(async () => {
+  const { createHandler, HttpError } = await import('../supabase/functions/presentation-meals/handler.mjs');
+  await new Promise(resolve => app.listen(8493, '127.0.0.1', resolve));
+  const browser = await chromium.launch({ headless: true });
+  try {
+    for (const [width, height] of [[320,568],[390,844],[750,900],[1280,900]]) {
+      const context = await browser.newContext({ viewport: { width, height }, serviceWorkers: 'block' });
+      const people = [{ id: 1, name: 'Jack Example' }, { id: 2, name: 'Gemma Example' }];
+      const meals = new Map(); let writes = 0; let failSave = false; let failGet = false; let failList = false;
+      const handler = createHandler({ passwordHash: createHash('sha256').update('test-only-password').digest('hex'), repository: {
+        attendees: async () => { if (failList) throw new Error('Fixture list failure'); return people; },
+        attendee: async id => people.find(person => person.id === id),
+        meal: async id => { if (failGet) throw new Error('Fixture read failure'); return meals.get(id) || null; },
+        allMeals: async () => [...meals.values()],
+        save: async choice => {
+          if (failSave) throw new Error('Fixture write failure');
+          if ((meals.get(choice.rsvp_id)?.revision || 0) !== choice.revision) throw new HttpError(409, 'This meal choice changed on another device. Select your name again before saving.');
+          const saved = { ...choice, revision: choice.revision + 1, updated_at: new Date().toISOString() };
+          meals.set(choice.rsvp_id, saved); writes++; return saved;
+        }
+      } });
+      await context.route('https://tzzkgfehtnuizamzlbgr.supabase.co/**', async route => {
+        const request = route.request();
+        if (request.url().includes('/functions/')) {
+          const response = await handler(new Request(request.url(), { method: 'POST', body: request.postData() }));
+          return route.fulfill({ status: response.status, contentType: 'application/json', body: await response.text() });
+        }
+        if (request.url().includes('/events')) return route.fulfill({ json: [{ id: 30, name: 'Barford End Of Season Presentation Evening', date: '2026-11-07', cancelled: false }] });
+        return route.fulfill({ json: people.map(person => ({ ...person, attending: true, reserve: false, created_at: '2026-10-01T12:00:00Z' })) });
+      });
+      const page = await context.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message));
+      await page.goto('http://127.0.0.1:8493/');
+      await page.locator('#mealMember:not([disabled])').waitFor();
+      assert.equal(await page.locator('#mealForm').isVisible(), false);
+      await page.locator('#mealMember').selectOption('1');
+      await page.locator('#confirmNameDialog[open]').waitFor();
+      assert.equal(await page.locator('#mealForm').isVisible(), false, 'Menu must remain hidden before confirmation');
+      await page.locator('#cancelMealName').click();
+      assert.equal(await page.locator('#mealMember').inputValue(), '');
+      assert.equal(writes, 0);
+      await page.locator('#mealMember').selectOption('1');
+      await page.locator('#confirmMealName').click();
+      await page.locator('#mealForm').waitFor();
+      assert.equal(await page.locator('[name=meal]').count(), 6);
+      await page.locator('[name=meal][value=steak_pie]').check();
+      await page.locator('#saveMeal').click();
+      assert.equal(writes, 0, 'Steak pie requires a side');
+      await page.locator('[name=pieSide][value=mash]').check();
+      await page.locator('#saveMeal').click();
+      await page.locator('#mealSaveMessage').filter({ hasText: 'Saved for Jack Example: Steak Pie with creamy mash.' }).waitFor();
+      assert.equal(meals.get(1).side, 'mash'); assert.equal(meals.size, 1);
+      await page.reload();
+      await page.locator('#mealMember:not([disabled])').waitFor();
+      assert.equal(await page.locator('#mealForm').isVisible(), false, 'Every visit requires name confirmation');
+      await page.locator('#mealMember').selectOption('1'); await page.locator('#confirmMealName').click();
+      await page.locator('#mealForm').waitFor();
+      assert.equal(await page.locator('[name=meal][value=steak_pie]').isChecked(), true);
+      assert.equal(await page.locator('[name=pieSide][value=mash]').isChecked(), true);
+      await page.locator('[name=meal][value=vegan_burger]').check();
+      assert.equal(await page.locator('#pieSides').isVisible(), false);
+      failSave = true;
+      await page.locator('#saveMeal').click();
+      await page.locator('#mealSaveMessage.error').waitFor();
+      assert.equal(meals.get(1).meal, 'steak_pie', 'Failed save must preserve prior choice');
+      failSave = false;
+      await page.locator('#saveMeal').click();
+      await page.locator('#mealSaveMessage').filter({ hasText: 'Saved for Jack Example: Vegan Burger.' }).waitFor();
+      assert.equal(meals.get(1).side, null); assert.equal(meals.size, 1);
+      meals.get(1).revision++;
+      await page.locator('[name=meal][value=cod]').check(); await page.locator('#saveMeal').click();
+      await page.locator('#mealMessage').filter({ hasText: 'changed on another device' }).waitFor();
+      assert.equal(meals.get(1).meal, 'vegan_burger');
+      await page.locator('#exportMeals').click();
+      await page.locator('#exportPassword').fill('wrong'); await page.locator('#downloadMeals').click();
+      await page.locator('#exportMessage').filter({ hasText: 'Incorrect committee password' }).waitFor();
+      assert.equal(await page.locator('#exportPassword').inputValue(), '');
+      await page.locator('#exportPassword').fill('test-only-password');
+      const downloadWait = page.waitForEvent('download'); await page.locator('#downloadMeals').click();
+      const download = await downloadWait;
+      assert.equal(download.suggestedFilename(), 'Barford-Presentation-2026-Food-Choices.xlsx');
+      const bytes = fs.readFileSync(await download.path());
+      assert.equal(bytes.readUInt32LE(0), 0x04034b50);
+      await page.locator('#cancelExport').click();
+      await page.locator('#toggleRsvp').click();
+      await page.locator('#rsvpSection').waitFor();
+      assert.equal(await page.locator('#answerYes').isEnabled(), true);
+      await page.locator('#showAttendees').click();
+      assert.equal(await page.locator('#guestCount').innerText(), '2');
+      await page.locator('#attendees button').first().click();
+      await page.locator('.rsvp-editor[open] #editPassword').waitFor();
+      await page.locator('#editCancel').click();
+      await page.locator('#toggleRsvp').click();
+      failGet = true;
+      await page.locator('#mealMember').selectOption('2'); await page.locator('#confirmMealName').click();
+      await page.locator('#mealMessage.error').waitFor();
+      assert.equal(await page.locator('#mealForm').isVisible(), false, 'Never save a guessed empty choice after a read failure');
+      failGet = false;
+      failList = true; await page.reload(); await page.locator('#retryMeals').waitFor();
+      failList = false; await page.locator('#retryMeals').click(); await page.locator('#mealMember:not([disabled])').waitFor();
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'No horizontal overflow');
+      assert.deepEqual(errors, []);
+      console.log(`PASS ${width}x${height}: name confirmation, meals, sides, reload, failures, conflicts, protected XLSX export, RSVP management`);
+      await context.close();
     }
-    if(req.method()==='POST'){
-     const row={...payload,id:Math.max(...data.map(x=>x.id))+1,created_at:new Date().toISOString()};
-     data.push(row);inserts++;
-     return route.fulfill({json:[row]});
-    }
-   }
-   return route.fulfill({status:404,json:{message:'Unknown request'}});
-  });
-  await page.goto('http://127.0.0.1:8493/');
-  await page.locator('#answerYes:not([disabled])').waitFor();
-  if (width <= 750) {
-    const bounds=await page.evaluate(()=>{
-      const box=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height};};
-      return {header:box('.site-head'),hero:box('.invitation'),card:box('.response-card'),title:box('#pageTitle'),name:box('#memberName'),yes:box('#answerYes'),no:box('#answerNo'),confirm:box('#confirmRsvp'),list:box('#showAttendees'),bodyHeight:document.body.scrollHeight,documentHeight:document.documentElement.scrollHeight,viewHeight:innerHeight,viewWidth:innerWidth};
-    });
-    const eventDetailBounds=await page.evaluate(()=>{
-      const rect=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight};};
-      const hero=document.querySelector('.invitation');
-      return {hero:rect(hero),facts:rect(document.querySelector('.event-facts')),
-        date:rect(document.querySelector('#presentationDate')),
-        where:rect(document.querySelector('#presentationVenue')),
-        time:rect(document.querySelector('.event-fact:nth-child(3) strong')),
-        heroOverflow:getComputedStyle(hero).overflow};
-    });
-    console.log('EVENT DETAILS',width,height,JSON.stringify(eventDetailBounds));
-    for(const detail of ['date','where','time']) {
-      const part=eventDetailBounds[detail], hero=eventDetailBounds.hero;
-      assert(part.width>20 && part.height>=12,'The '+detail+' detail must have actual readable size');
-      assert(part.top>=hero.top-1 && part.bottom<=hero.bottom-2,
-        detail+' is cut off outside the event heading: '+JSON.stringify(eventDetailBounds));
-      assert(part.left>=hero.left-1 && part.right<=hero.right+1,
-        detail+' extends beyond the mobile event card');
-    }
-    assert(eventDetailBounds.facts.bottom<=eventDetailBounds.hero.bottom-2,
-      'The entire When, Where and Time box must be inside the hero: '+JSON.stringify(eventDetailBounds));
-    console.log('FIRST SCREEN',width,height,JSON.stringify(bounds));
-    assert(bounds.bodyHeight<=height+2 && bounds.documentHeight<=height+2, 'Collapsed RSVP page should not scroll on '+width+'x'+height+': '+JSON.stringify(bounds));
-    assert(bounds.card.bottom>=height-18 && bounds.card.bottom<=height+2, 'RSVP should fill to the bottom of the screen, rather than sit squashed at the top: '+JSON.stringify(bounds));
-    assert(bounds.hero.height>=height*.26, 'Invitation should use meaningful space while leaving room for the confirmation button: '+JSON.stringify(bounds));
-    await page.screenshot({path:path.join(root,'presentation-first-screen-'+width+'x'+height+'.png')});
-    const legacyBounds=await page.evaluate(()=>{
-      const area=id=>{const r=document.querySelector(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom};};
-      return {header:area('.site-head'),title:area('#pageTitle'),date:area('#presentationDate'),venue:area('#presentationVenue'),name:area('#memberName'),yes:area('#answerYes'),no:area('#answerNo'),confirm:area('#confirmRsvp'),list:area('#showAttendees'),width:document.documentElement.scrollWidth,viewWidth:innerWidth,viewHeight:innerHeight};
-    });
-    assert(legacyBounds.width<=legacyBounds.viewWidth+1,'Phone must have no horizontal overflow');
-    for(const control of ['name','yes','no','confirm','list']) {
-      assert(legacyBounds[control].top>=0 && legacyBounds[control].bottom<=legacyBounds.viewHeight-6,
-        control+' must be fully visible without scrolling on '+width+'x'+height+': '+JSON.stringify(legacyBounds));
-    }
-    assert.equal(await page.evaluate(()=>scrollY),0,'Phone must not scroll to display the form');
-  }
-
-  assert.match((await page.locator('#pageTitle').innerText()).replace(/\s+/g,' '),/Presentation Evening/);
-  assert.equal(await page.locator('#guestSection').isVisible(),false,'Guest list must start hidden');
-  assert.match((await page.locator('#showAttendees').innerText()).replace(/\s+/g,' '),/See who's coming/);
-  assert.equal(await page.locator('#presentationVenue').innerText(),'To be confirmed');
-  await page.locator('#showAttendees').click();
-  assert.equal(await page.locator('#guestSection').isVisible(),true);
-  assert.equal(await page.locator('#showAttendees').getAttribute('aria-expanded'),'true');
-  assert.equal(await page.locator('#guestCount').innerText(),'3');
-  assert.equal(await page.locator('#attendees li').count(),3);
-  await page.locator('#showAttendees').click();
-  assert.equal(await page.locator('#guestSection').isVisible(),false,'Collapse optional guest list before checking the no-scroll RSVP flow');
-  assert.equal(await page.locator('.hero-buttons').count(),0);
-  assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'Horizontal mobile overflow');
-  await page.locator('#memberName').fill('New Person');
-  assert.equal(await page.locator('#confirmRsvp').isDisabled(),true,'Must pick Yes or No first');
-  await page.locator('#answerYes').click();
-  assert.equal(inserts,0,'Choosing Yes should not save');
-  assert.equal(updates,0);
-  assert.equal(await page.locator('#answerYes').getAttribute('aria-pressed'),'true');
-  assert.equal(await page.locator('#answerNo').getAttribute('aria-pressed'),'false');
-  assert.equal(await page.locator('#confirmRsvp').isEnabled(),true);
-  if(width<=750) {
-    const beforeConfirm=await page.locator('#confirmRsvp').boundingBox();
-    assert(beforeConfirm.y+beforeConfirm.height<=height-5,'Confirm button should remain visible after selecting Yes');
-    const afterSelection=await page.evaluate(()=>{
-      const card=document.querySelector('.response-card').getBoundingClientRect(), status=document.querySelector('#responseMessage').getBoundingClientRect();
-      const confirm=document.querySelector('#confirmRsvp').getBoundingClientRect();
-      return {scrollHeight:document.documentElement.scrollHeight,bodyHeight:document.body.scrollHeight,viewport:innerHeight,cardBottom:card.bottom,statusHeight:status.height,statusText:document.querySelector('#responseMessage').textContent,confirmBottom:confirm.bottom};
-    });
-    console.log('AFTER ANSWER SELECTION',width,height,JSON.stringify(afterSelection));
-    assert(afterSelection.confirmBottom<=height-5,'Confirm RSVP must remain visible without scrolling');
-    assert(afterSelection.scrollHeight<=height+2 && afterSelection.bodyHeight<=height+2,'Collapsed RSVP must not need scrolling after selection: '+JSON.stringify(afterSelection));
-  }
-  await page.locator('#confirmRsvp').click();
-  await page.locator('#responseMessage').filter({hasText:/Thank you/}).waitFor();
-  assert.equal(inserts,1);
-  assert.equal(await page.locator('#guestCount').innerText(),'4');
-  await page.locator('#answerNo').click();
-  assert.equal(inserts,1,'Selecting No must not create another RSVP');
-  assert.equal(updates,0,'Selecting No must not update the response before confirmation');
-  assert.equal(await page.locator('#answerNo').getAttribute('aria-pressed'),'true');
-  await page.locator('#confirmRsvp').click();
-  await page.locator('#responseMessage').filter({hasText:/Thank you/}).waitFor();
-  assert.equal(inserts,1,'Repeated RSVP must update, not insert');
-  assert.equal(updates,1);
-  assert.equal(await page.locator('#guestCount').innerText(),'3');
-  await page.locator('#memberName').fill('Nick');
-  await page.locator('#answerNo').click();
-  await page.locator('#confirmRsvp').click();
-  await page.locator('#responseMessage').filter({hasText:/More than one RSVP/}).waitFor();
-  assert.equal(updates,1,'Ambiguous names must not update an existing RSVP');
-  await page.locator('#showAttendees').click();
-  assert.equal(await page.locator('#guestSection').isVisible(),true,'Guest list should open after a saved RSVP');
-  await page.locator('#showAttendees').click();
-  assert.equal(await page.locator('#guestSection').isVisible(),false,'Guest list must collapse again');
-  await page.screenshot({path:path.join(root,'presentation-'+width+'.png'),fullPage:true});
-  assert.deepEqual(errors,[]);
-  console.log('PASS '+width+'px: presentation details, RSVP insert/edit, duplicate-name guard, attendees and layout');
-  await context.close();
- } finally {await browser.close();}
-}
-(async()=>{
- await new Promise(r=>app.listen(8493,'127.0.0.1',r));
- try{await test(320,568);await test(360,640);await test(375,667);await test(390,844);await test(430,932);await test(1280,900);}finally{app.close();}
-})().catch(e=>{console.error(e);process.exitCode=1;});
+  } finally { await browser.close(); app.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; app.close(); });

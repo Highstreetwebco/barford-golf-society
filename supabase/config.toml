@@ -1,0 +1,4 @@
+project_id = "barford-live-2026"
+
+[functions.presentation-meals]
+verify_jwt = true
