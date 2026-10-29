@@ -119,6 +119,7 @@
         if (!Array.isArray(saved) || saved.length !== 1) throw new Error('Your response could not be confirmed. Please try again.');
       }
       try { localStorage.setItem(LAST_REPLY_KEY, name); } catch {}
+      document.dispatchEvent(new Event('presentation-rsvp-updated'));
       showMessage(attending ? "Thank you. You're on the list for the presentation evening." : 'Thank you. Your reply has been saved as not attending.');
       await refreshGuests().catch(() => {
         showMessage('Your response was saved, but the guest list could not refresh. Please reload the page.');
@@ -195,6 +196,7 @@
       });
       if (!Array.isArray(result) || result.length !== 1) throw new Error('The change could not be confirmed. Refresh the list before trying again.');
       editor.close();
+      document.dispatchEvent(new Event('presentation-rsvp-updated'));
       showMessage(remove ? 'Person removed from the presentation evening list.' : 'RSVP updated.');
       await refreshGuests().catch(() => showMessage('Change saved. Reload the page to refresh the list.'));
     } catch (error) {

@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#123a32">
-  <meta name="description" content="Barford Golf Society 2026 presentation evening — RSVP and see who's coming.">
+  <meta name="description" content="Barford Golf Society 2026 presentation evening — confirm your name and choose your meal.">
   <title>2026 Presentation Evening | Barford Golf Society</title>
   <link rel="canonical" href="https://barfordgolf.co.uk/">
   <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="presentation.css?v=2026-rsvp-management-8">
-  <script src="presentation.js?v=2026-rsvp-management-8" defer></script>
+  <link rel="stylesheet" href="presentation.css?v=2026-meals-9">
+  <script src="presentation.js?v=2026-meals-9" defer></script>
+  <script type="module" src="presentation-meals.mjs?v=2026-meals-9"></script>
 </head>
 <body>
   <header class="site-head">
@@ -33,7 +34,33 @@
       </div>
     </section>
 
-    <section class="response-card" aria-labelledby="responseTitle">
+    <section class="response-card meal-card" aria-labelledby="mealTitle">
+      <div class="section-prefix">PRESENTATION EVENING MENU</div>
+      <h2 id="mealTitle">What would you like?</h2>
+      <p class="meal-intro">Select your name, confirm it's you, then choose your meal.</p>
+      <label for="mealMember">Your name</label>
+      <select id="mealMember" disabled><option value="">Loading names…</option></select>
+      <p id="mealMessage" class="form-message" role="status" aria-live="polite">Loading the guest list…</p>
+      <button id="retryMeals" type="button" class="secondary-button" hidden>Try again</button>
+      <form id="mealForm" hidden>
+        <p class="confirmed-person">Choosing for <strong id="confirmedName"></strong></p>
+        <fieldset id="mealOptions"><legend>Choose one main course</legend></fieldset>
+        <fieldset id="pieSides" hidden>
+          <legend>With your steak pie</legend>
+          <label class="side-option"><input type="radio" name="pieSide" value="chips"> Rosemary salted chips</label>
+          <label class="side-option"><input type="radio" name="pieSide" value="mash"> Creamy mash</label>
+        </fieldset>
+        <p class="menu-note">For allergies or dietary requirements, please speak to the committee before choosing.</p>
+        <button id="saveMeal" class="confirm-rsvp" type="submit">Save my food choice</button>
+        <p id="mealSaveMessage" class="form-message" role="status" aria-live="polite"></p>
+      </form>
+      <div class="meal-footer-actions">
+        <button id="toggleRsvp" class="secondary-button" type="button" aria-expanded="false" aria-controls="rsvpSection">Need to RSVP or see who's coming?</button>
+        <button id="exportMeals" class="admin-export" type="button">🔒 Export names and food choices to Excel</button>
+      </div>
+    </section>
+
+    <section id="rsvpSection" class="response-card" aria-labelledby="responseTitle" hidden>
       <div class="section-prefix">YOUR RESPONSE</div>
       <h2 id="responseTitle">Are you coming?</h2>
       <p class="response-description">Please let us know if you'll be joining us for the presentation evening.</p>
@@ -65,6 +92,28 @@
 
 
   </main>
+  <dialog id="confirmNameDialog" class="rsvp-editor" aria-labelledby="confirmNameTitle">
+    <h2 id="confirmNameTitle">Is this you?</h2>
+    <p>You have selected <strong id="confirmNameText"></strong>.</p>
+    <p>Your food choice will be saved under this name.</p>
+    <div class="edit-actions">
+      <button id="confirmMealName" type="button">Yes, that's me</button>
+      <button id="cancelMealName" type="button" autofocus>Go back</button>
+    </div>
+  </dialog>
+  <dialog id="exportDialog" class="rsvp-editor" aria-labelledby="exportTitle">
+    <form id="exportForm">
+      <h2 id="exportTitle">Committee export</h2>
+      <p>Download everyone's food choices and kitchen totals.</p>
+      <label for="exportPassword">Committee password</label>
+      <input id="exportPassword" type="password" autocomplete="current-password" required maxlength="200">
+      <p id="exportMessage" class="form-message" role="status" aria-live="polite"></p>
+      <div class="edit-actions">
+        <button id="downloadMeals" type="submit">Download Excel spreadsheet</button>
+        <button id="cancelExport" type="button">Cancel</button>
+      </div>
+    </form>
+  </dialog>
   <footer class="site-footer"><span>© 2026 Barford Golf Society</span><span>See you at the presentation evening.</span></footer>
 </body>
 </html>

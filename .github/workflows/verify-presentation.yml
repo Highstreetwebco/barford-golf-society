@@ -1,7 +1,8 @@
 name: Verify 2026 presentation homepage
 on:
   push:
-    branches: [main]
+    branches: [main, presentation-meal-choices]
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,4 +17,5 @@ jobs:
           node-version: "22"
       - run: npm install --no-save --package-lock=false playwright@1.57.0
       - run: npx playwright install --with-deps chromium
+      - run: node --test tests/meals.test.mjs
       - run: node tests/presentation.cjs
